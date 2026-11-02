@@ -1,0 +1,45 @@
+// PR スナップショットと分析結果を保存する SQLite のスキーマ
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// GitHub から取得した PR のスナップショット。同じ head コミットにつき 1 行
+model PullRequestSnapshot {
+  id         String     @id @default(cuid())
+  owner      String
+  repo       String
+  pullNumber Int
+  headSha    String
+  title      String
+  // PullRequestSnapshot 全体（diff を含む）
+  payload    Json
+  fetchedAt  DateTime
+  createdAt  DateTime   @default(now())
+  analyses   Analysis[]
+
+  @@unique([owner, repo, pullNumber, headSha])
+}
+
+// Claude による分析結果。1 つのスナップショットに対して複数回分析できる
+model Analysis {
+  id           String              @id @default(cuid())
+  snapshotId   String
+  snapshot     PullRequestSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  modelId      String
+  riskLevel    String
+  isBreaking   Boolean
+  // PullRequestAnalysis 全体
+  result       Json
+  omittedFiles Json
+  inputTokens  Int?
+  outputTokens Int?
+  createdAt    DateTime            @default(now())
+
+  @@index([snapshotId, createdAt])
+}

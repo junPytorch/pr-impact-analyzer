@@ -9,11 +9,18 @@ import {
   createPullRequestService,
   type PullRequestService,
 } from "./pull-requests/service";
+import {
+  createAnalysisRepository,
+  type AnalysisRepository,
+} from "./storage/analysis-repository";
+import { getPrismaClient } from "./storage/prisma";
 
 /** 生成済みの PullRequestService のキャッシュ */
 let pullRequestService: PullRequestService | undefined;
 /** 生成済みの PullRequestAnalyzer のキャッシュ */
 let pullRequestAnalyzer: PullRequestAnalyzer | undefined;
+/** 生成済みの AnalysisRepository のキャッシュ */
+let analysisRepository: AnalysisRepository | undefined;
 
 /**
  * 具体的な依存を組み立てて PullRequestService を返す（コンポジションルート）。
@@ -43,4 +50,14 @@ export function getPullRequestAnalyzer(): PullRequestAnalyzer {
     pullRequestAnalyzer = createPullRequestAnalyzer({ model: anthropic(env.ANALYSIS_MODEL) });
   }
   return pullRequestAnalyzer;
+}
+
+/**
+ * 共有の PrismaClient を使う AnalysisRepository を返す（コンポジションルート）。
+ * @returns AnalysisRepository
+ * @throws {ServerConfigError} DATABASE_URL が不正な場合
+ */
+export function getAnalysisRepository(): AnalysisRepository {
+  analysisRepository ??= createAnalysisRepository(getPrismaClient());
+  return analysisRepository;
 }
