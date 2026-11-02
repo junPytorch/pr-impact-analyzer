@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { parseAnalysisEnv, parseGitHubEnv, ServerConfigError } from "./env";
+import {
+  parseAnalysisEnv,
+  parseDatabaseEnv,
+  parseGitHubEnv,
+  ServerConfigError,
+} from "./env";
 
 // get*Env はキャッシュを持つため、キャッシュのない parse*Env を process.env で直接検証する
 afterEach(() => {
@@ -52,5 +57,19 @@ describe("parseAnalysisEnv", () => {
     vi.stubEnv("ANALYSIS_MODEL", "claude-opus-5-5");
 
     expect(parseAnalysisEnv(process.env).ANALYSIS_MODEL).toBe("claude-opus-5-5");
+  });
+});
+
+describe("parseDatabaseEnv", () => {
+  it("DATABASE_URL が未設定なら既定値を使う", () => {
+    vi.stubEnv("DATABASE_URL", undefined);
+
+    expect(parseDatabaseEnv(process.env)).toEqual({ DATABASE_URL: "file:./dev.db" });
+  });
+
+  it("DATABASE_URL が設定されていればその値を使う", () => {
+    vi.stubEnv("DATABASE_URL", "file:./other.db");
+
+    expect(parseDatabaseEnv(process.env).DATABASE_URL).toBe("file:./other.db");
   });
 });

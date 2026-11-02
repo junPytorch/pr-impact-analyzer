@@ -19,6 +19,13 @@ const analysisEnvSchema = z.object({
 });
 
 /**
+ * データベース用の環境変数のスキーマ。秘密情報ではないため、未設定ならリポジトリ直下の dev.db を使う。
+ */
+const databaseEnvSchema = z.object({
+  DATABASE_URL: z.string().min(1).default("file:./dev.db"),
+});
+
+/**
  * 検証済みの GitHub 用環境変数。
  */
 export type GitHubEnv = z.infer<typeof githubEnvSchema>;
@@ -27,6 +34,11 @@ export type GitHubEnv = z.infer<typeof githubEnvSchema>;
  * 検証済みの分析用環境変数。
  */
 export type AnalysisEnv = z.infer<typeof analysisEnvSchema>;
+
+/**
+ * 検証済みのデータベース用環境変数。
+ */
+export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;
 
 /** 環境変数の取得元（通常は process.env） */
 type EnvSource = Record<string, string | undefined>;
@@ -84,9 +96,20 @@ export function parseAnalysisEnv(source: EnvSource): AnalysisEnv {
   return parseEnv(analysisEnvSchema, source);
 }
 
+/**
+ * データベース用の環境変数を検証する。キャッシュしない純粋な処理で、テストではこちらを直接使う。
+ * @param source 検証する環境変数（通常は process.env）
+ * @returns 検証済みのデータベース用環境変数（DATABASE_URL は未設定なら既定値）
+ * @throws {ServerConfigError} DATABASE_URL が不正な場合
+ */
+export function parseDatabaseEnv(source: EnvSource): DatabaseEnv {
+  return parseEnv(databaseEnvSchema, source);
+}
+
 /** 検証済み環境変数のキャッシュ */
 let cachedGitHubEnv: GitHubEnv | undefined;
 let cachedAnalysisEnv: AnalysisEnv | undefined;
+let cachedDatabaseEnv: DatabaseEnv | undefined;
 
 /**
  * GitHub 用の環境変数を返す。初回呼び出し時に process.env を検証し、以降はキャッシュを返す。
@@ -106,4 +129,14 @@ export function getGitHubEnv(): GitHubEnv {
 export function getAnalysisEnv(): AnalysisEnv {
   cachedAnalysisEnv ??= parseAnalysisEnv(process.env);
   return cachedAnalysisEnv;
+}
+
+/**
+ * データベース用の環境変数を返す。初回呼び出し時に process.env を検証し、以降はキャッシュを返す。
+ * @returns 検証済みのデータベース用環境変数
+ * @throws {ServerConfigError} DATABASE_URL が不正な場合
+ */
+export function getDatabaseEnv(): DatabaseEnv {
+  cachedDatabaseEnv ??= parseDatabaseEnv(process.env);
+  return cachedDatabaseEnv;
 }
