@@ -11,11 +11,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.94",
     "@octokit/core": "7.0.8",
     "@octokit/plugin-paginate-rest": "16.0.0",
     "@octokit/plugin-rest-endpoint-methods": "18.0.0",
     "@octokit/plugin-retry": "8.1.1",
     "@octokit/plugin-throttling": "11.0.5",
+    "ai": "7.0.159",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",

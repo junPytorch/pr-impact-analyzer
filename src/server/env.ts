@@ -3,16 +3,33 @@ import "server-only";
 import { z } from "zod";
 
 /**
- * サーバー側で必要な環境変数のスキーマ。
+ * GitHub API 用の環境変数のスキーマ。
  */
-const serverEnvSchema = z.object({
+const githubEnvSchema = z.object({
   GITHUB_TOKEN: z.string().min(1),
 });
 
 /**
- * 検証済みのサーバー環境変数。
+ * Claude による分析用の環境変数のスキーマ。
+ * GitHub 用と分けておき、ANTHROPIC_API_KEY がなくても PR 取得 API は動くようにする。
  */
-export type ServerEnv = z.infer<typeof serverEnvSchema>;
+const analysisEnvSchema = z.object({
+  ANTHROPIC_API_KEY: z.string().min(1),
+  ANALYSIS_MODEL: z.string().min(1).default("claude-sonnet-5-5"),
+});
+
+/**
+ * 検証済みの GitHub 用環境変数。
+ */
+export type GitHubEnv = z.infer<typeof githubEnvSchema>;
+
+/**
+ * 検証済みの分析用環境変数。
+ */
+export type AnalysisEnv = z.infer<typeof analysisEnvSchema>;
+
+/** 環境変数の取得元（通常は process.env） */
+type EnvSource = Record<string, string | undefined>;
 
 /**
  * サーバーの設定（環境変数）が不足・不正なことを表すエラー。
@@ -29,13 +46,14 @@ export class ServerConfigError extends Error {
 }
 
 /**
- * 環境変数を検証して ServerEnv を返す。キャッシュしない純粋な処理で、テストではこちらを直接使う。
- * @param source 検証する環境変数（通常は process.env）
- * @returns 検証済みの環境変数
- * @throws {ServerConfigError} 必要な変数が不足・不正な場合（メッセージには変数名だけを含める）
+ * スキーマで環境変数を検証する。
+ * @param schema 検証に使うスキーマ
+ * @param source 検証する環境変数
+ * @returns 検証済みの値
+ * @throws {ServerConfigError} 不足・不正な変数がある場合（メッセージには変数名だけを含める）
  */
-export function parseServerEnv(source: Record<string, string | undefined>): ServerEnv {
-  const result = serverEnvSchema.safeParse(source);
+function parseEnv<T extends z.ZodType>(schema: T, source: EnvSource): z.infer<T> {
+  const result = schema.safeParse(source);
   if (!result.success) {
     // 値が漏れないよう、問題のある変数名だけを集めてメッセージにする
     const names = [...new Set(result.error.issues.map((issue) => issue.path.join(".")))];
@@ -46,15 +64,46 @@ export function parseServerEnv(source: Record<string, string | undefined>): Serv
   return result.data;
 }
 
-/** 検証済み環境変数のキャッシュ */
-let cachedEnv: ServerEnv | undefined;
+/**
+ * GitHub 用の環境変数を検証する。キャッシュしない純粋な処理で、テストではこちらを直接使う。
+ * @param source 検証する環境変数（通常は process.env）
+ * @returns 検証済みの GitHub 用環境変数
+ * @throws {ServerConfigError} GITHUB_TOKEN が不足・不正な場合
+ */
+export function parseGitHubEnv(source: EnvSource): GitHubEnv {
+  return parseEnv(githubEnvSchema, source);
+}
 
 /**
- * サーバー環境変数を返す。初回呼び出し時に process.env を検証し、以降はキャッシュを返す。
- * @returns 検証済みの環境変数
- * @throws {ServerConfigError} 必要な変数が不足・不正な場合
+ * 分析用の環境変数を検証する。キャッシュしない純粋な処理で、テストではこちらを直接使う。
+ * @param source 検証する環境変数（通常は process.env）
+ * @returns 検証済みの分析用環境変数（ANALYSIS_MODEL は未設定なら既定値）
+ * @throws {ServerConfigError} ANTHROPIC_API_KEY が不足・不正な場合
  */
-export function getServerEnv(): ServerEnv {
-  cachedEnv ??= parseServerEnv(process.env);
-  return cachedEnv;
+export function parseAnalysisEnv(source: EnvSource): AnalysisEnv {
+  return parseEnv(analysisEnvSchema, source);
+}
+
+/** 検証済み環境変数のキャッシュ */
+let cachedGitHubEnv: GitHubEnv | undefined;
+let cachedAnalysisEnv: AnalysisEnv | undefined;
+
+/**
+ * GitHub 用の環境変数を返す。初回呼び出し時に process.env を検証し、以降はキャッシュを返す。
+ * @returns 検証済みの GitHub 用環境変数
+ * @throws {ServerConfigError} GITHUB_TOKEN が不足・不正な場合
+ */
+export function getGitHubEnv(): GitHubEnv {
+  cachedGitHubEnv ??= parseGitHubEnv(process.env);
+  return cachedGitHubEnv;
+}
+
+/**
+ * 分析用の環境変数を返す。初回呼び出し時に process.env を検証し、以降はキャッシュを返す。
+ * @returns 検証済みの分析用環境変数
+ * @throws {ServerConfigError} ANTHROPIC_API_KEY が不足・不正な場合
+ */
+export function getAnalysisEnv(): AnalysisEnv {
+  cachedAnalysisEnv ??= parseAnalysisEnv(process.env);
+  return cachedAnalysisEnv;
 }
